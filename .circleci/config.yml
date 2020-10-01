@@ -1,0 +1,20 @@
+version: 2.1
+commands:
+  do_all:
+    steps:
+      - git clone --recursive https://github.com/edwardstock/dockerpack /root/dockerpack
+      - bash cfg/package_make.sh -t archive
+      - bash _build/package_upload.sh -t github
+
+jobs:
+  build_all:
+    docker:
+      - image: docker.edwardstock.com/gcc_dev_el7:latest
+    steps:
+      - do_all
+
+workflows:
+  version: 2.1
+  build_and_test:
+    jobs:
+      - build_all

@@ -1,0 +1,17 @@
+[generators]
+cmake
+
+[requires]
+toolbox/3.1.2@edwardstock/latest
+boost/1.72.0
+nlohmann_json/3.7.3
+yaml-cpp/0.6.3
+libsodium/1.0.18
+
+[options]
+boost:shared=False
+yaml-cpp:shared=False
+yaml-cpp:fPIC=True
+libsodium:shared=False
+libsodium:fPIC=False
+toolbox:shared=False
