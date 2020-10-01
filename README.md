@@ -25,6 +25,13 @@ Also **dockerpack.yaml** syntax almost looks like github actions or CircleCI.
 
 ## Download
 
+### Self-extractable bash script for MacOS or Linux
+Find latest version in [Releases](https://github.com/edwardstock/dockerpack/releases/latest)
+```bash
+wget https://github.com/edwardstock/dockerpack/releases/download/{LATEST_VERSION}/dockerpack-{LATEST_VERSION}-[Linux|Darwin]-x86_64.sh
+sh dockerpack-{LATEST_VERSION}-[Linux|Darwin]-x86_64.sh --prefix=/usr/local --skip-license
+```
+
 ### RPM
 Supported distributions:
 - centos 7, 8

@@ -77,18 +77,24 @@ if [ "${TYPE}" == "github" ]; then
     curl -Lso /tmp/ghr.tar.gz "https://github.com/tcnksm/ghr/releases/download/v0.12.2/ghr_v0.12.2_linux_amd64.tar.gz"
   fi
 
-  if [ ! -f "${BUILD_ROOT}/ghr" ]; then
-    tar -xvf /tmp/ghr.tar.gz -C /tmp
-    cp /tmp/ghr_*/ghr ${BUILD_ROOT}/ghr
-    chmod +x ${BUILD_ROOT}/ghr
+  GHR_BIN=${BUILD_ROOT}/ghr
+
+  if [ ! -f "/usr/bin/ghr" ] && [ ! -f "/usr/local/bin/ghr" ]; then
+    if [ ! -f "${BUILD_ROOT}/ghr" ]; then
+      tar -xvf /tmp/ghr.tar.gz -C /tmp
+      cp /tmp/ghr_*/ghr ${BUILD_ROOT}/ghr
+      chmod +x ${GHR_BIN}
+    fi
+  else
+    GHR_BIN=$(which ghr)
   fi
 
   if [ "${DRY_RUN}" == "1" ]; then
-    echo "${BUILD_ROOT}/ghr @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@"
+    echo "${GHR_BIN} @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@"
     exit 0
   fi
 
-  ${BUILD_ROOT}/ghr @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@
+  ${GHR_BIN} @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@
 
 elif [ "${TYPE}" == "bintray" ]; then
   # bintray upload

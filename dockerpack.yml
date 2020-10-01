@@ -3,20 +3,14 @@ commands_verbose: true
 # used only in jobs
 workdir: /root/dockerpack
 # this command will be executed right after image run
-#checkout: git clone --recursive https://github.com/edwardstock/dockerpack.git /root/dockerpack
-copy:
-  - ~/Sync/projects/cpp/dockerpack $image:/root
-
-#include: ~/.dockerpack/build_images.yml
+checkout: git clone --recursive https://github.com/edwardstock/dockerpack.git /root/dockerpack
 
 # list of named commands to use in job steps
 commands:
   make_project:
     steps:
-      - bash cfg/package_make.sh -t archive
-      - bash _build/package_upload.sh -t github --dry-run
       - bash cfg/package_make.sh -t package
-      - bash _build/package_upload.sh -t bintray --dry-run
+      - bash _build/package_upload.sh -t bintray
 
 
 multijob:
