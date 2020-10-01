@@ -84,11 +84,11 @@ if [ "${TYPE}" == "github" ]; then
   fi
 
   if [ "${DRY_RUN}" == "1" ]; then
-    echo "./ghr @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@"
+    echo "${BUILD_ROOT}/ghr @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@"
     exit 0
   fi
 
-  ./ghr @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@
+  ${BUILD_ROOT}/ghr @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@
 
 elif [ "${TYPE}" == "bintray" ]; then
   # bintray upload
