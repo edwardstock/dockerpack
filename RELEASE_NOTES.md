@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.1.2
+* Fixed creating working directory
+* Fixed --copy-local
+
 ## 0.1.1
 * Automatically create workdir if not exists
 * Added `--copy-local` argument. This function skips `checkout` command and copy all from current directory to working directory

@@ -45,7 +45,6 @@ void dockerpack::docker::ensure_workdir(const dockerpack::job_ptr_t& job, const 
     }
     std::stringstream cmd_builder;
     cmd_builder << "docker exec ";
-    cmd_builder << job->job_name() << " ";
 
     if (!job->envs.empty()) {
         for (const auto& kv : job->envs) {
@@ -53,6 +52,7 @@ void dockerpack::docker::ensure_workdir(const dockerpack::job_ptr_t& job, const 
         }
     }
 
+    cmd_builder << job->job_name() << " ";
     cmd_builder << "bash -c \"";
     cmd_builder << "mkdir -p " << workdir;
     cmd_builder << "\"";
@@ -64,6 +64,9 @@ void dockerpack::docker::ensure_workdir(const dockerpack::job_ptr_t& job, const 
     dockerpack::execmd cmd(cmd_builder.str());
     int status = 0;
     const std::string result = cmd.run(&status);
+    if (status) {
+        throw std::runtime_error("unable to create " + workdir);
+    }
 }
 
 bool dockerpack::docker::check_docker_exists() {

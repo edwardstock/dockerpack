@@ -63,7 +63,7 @@ void dockerpack::config::parse(bool copy_local) {
         }
     }
     if (copy_local) {
-        copy_paths.push_back(m_cwd + " " + workdir);
+        copy_paths.push_back(m_cwd + "/. " + workdir);
     }
 
     if (config["include"]) {
