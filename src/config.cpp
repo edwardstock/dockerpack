@@ -251,7 +251,7 @@ void dockerpack::config::parse_multijob(const YAML::Node& multijob_node) {
                     checkout_command,
                     "checkout",
                     true,
-                    "/"));
+                    workdir));
         }
         job->steps.insert(
             job->steps.end(),
