@@ -39,8 +39,14 @@ public:
     std::vector<std::string> filter_running_job(const std::string& name_filter);
 
 private:
+    void normalize_remote_path(std::string& path) const;
+    void normalize_local_path(std::string& path) const;
+    void ensure_workdir(const dockerpack::job_ptr_t& job, const std::string& workdir);
+    void load_remote_envs(const dockerpack::job_ptr_t& job);
     std::shared_ptr<dockerpack::config> m_config;
     std::unordered_map<std::string, std::string> m_run_jobs;
+    env_map image_envs;
+    env_map local_envs;
 };
 
 } // namespace dockerpack

@@ -54,10 +54,11 @@ public:
     std::unordered_map<std::string, std::vector<step_ptr_t>> steps;
     std::vector<job_ptr_t> jobs;
     std::vector<imb_ptr_t> build_images;
+    std::string m_cwd;
 
-    explicit config(std::string cfg_path);
+    config(std::string cwd, std::string cfg_path);
 
-    void parse();
+    void parse(bool copy_local = false);
 
 private:
     void parse_includes(const YAML::Node& include_list_node);
@@ -67,7 +68,7 @@ private:
     void parse_commands(const YAML::Node& commands);
     std::vector<step_ptr_t> parse_steps(const YAML::Node& steps_node) const;
     void insert_step(const std::string& print_name, std::string&& command, std::string&& name, bool skip_on_error = false);
-    env_map parse_envs(const YAML::Node& node) const;
+    env_map parse_envs(const YAML::Node& node, bool redacted = false) const;
 };
 
 using config_ptr_t = std::shared_ptr<dockerpack::config>;

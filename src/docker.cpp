@@ -14,8 +14,57 @@
 #include <boost/process.hpp>
 #include <termcolor/termcolor.hpp>
 #include <toolbox/strings.hpp>
+#include <toolbox/strings/regex.h>
 
 namespace style = termcolor;
+
+static std::string exec_internal(const std::string& job_name, const std::string& bash_command) {
+    std::stringstream cmd_builder;
+    cmd_builder << "docker exec ";
+    cmd_builder << job_name << " ";
+    cmd_builder << "bash -c \"";
+    cmd_builder << bash_command;
+    cmd_builder << "\"";
+
+    int status = 0;
+    dockerpack::execmd cmd(cmd_builder.str());
+    std::string res = cmd.run(&status);
+    if (status) {
+        throw std::runtime_error(res);
+    }
+
+    return res;
+}
+
+void dockerpack::docker::ensure_workdir(const dockerpack::job_ptr_t& job, const std::string& workdir) {
+    if (workdir.empty()) {
+        std::cerr << "[debug] can't make cwd: workdir is empty" << std::endl;
+        return;
+    } else if (workdir == "/") {
+        return;
+    }
+    std::stringstream cmd_builder;
+    cmd_builder << "docker exec ";
+    cmd_builder << job->job_name() << " ";
+
+    if (!job->envs.empty()) {
+        for (const auto& kv : job->envs) {
+            cmd_builder << "-e " << kv.first << "=" << kv.second << " ";
+        }
+    }
+
+    cmd_builder << "bash -c \"";
+    cmd_builder << "mkdir -p " << workdir;
+    cmd_builder << "\"";
+
+    if (m_config->debug) {
+        std::cout << "[debug] make cwd: " << style::green << cmd_builder.str() << style::reset << std::endl;
+    }
+
+    dockerpack::execmd cmd(cmd_builder.str());
+    int status = 0;
+    const std::string result = cmd.run(&status);
+}
 
 bool dockerpack::docker::check_docker_exists() {
     namespace bp = boost::process;
@@ -27,16 +76,78 @@ dockerpack::docker::docker(std::shared_ptr<dockerpack::config> config)
     : m_config(std::move(config)) {
 }
 
+void dockerpack::docker::normalize_remote_path(std::string& path) const {
+    for (const auto& env_value : image_envs) {
+        if (toolbox::strings::has_substring(env_value.first, path)) {
+            toolbox::strings::replace(env_value.first, env_value.second, path);
+        }
+    }
+
+    if (toolbox::strings::has_substring("~", path) && image_envs.count("HOME")) {
+        toolbox::strings::replace("~", image_envs.at("HOME"), path);
+    }
+
+    if (m_config->debug) {
+        std::cout << "[debug] Normalize path: " << path << std::endl;
+    }
+}
+
+void dockerpack::docker::normalize_local_path(std::string& path) const {
+    const std::string env_pattern = R"(\$[A-Z0-9_]+)";
+    if (!toolbox::strings::matches_pattern(env_pattern, path)) {
+        return;
+    }
+
+    auto all_find = toolbox::strings::find_all_pattern(env_pattern, path);
+    assert(all_find.size() != 0);
+
+    for (const auto& res : all_find) {
+        if (!res.empty()) {
+            auto name = res[0];
+            toolbox::strings::replace("$", "", name);
+            const char* value = getenv(name.c_str());
+            toolbox::strings::replace(res[0], value == nullptr ? "" : std::string(value), path);
+        }
+    }
+
+    if (toolbox::strings::has_substring("~", path)) {
+        const char* hp = getenv("HOME");
+        const std::string homepath = std::string(hp);
+        toolbox::strings::replace("~", homepath, path);
+    }
+
+    if (m_config->debug) {
+        std::cout << "[debug] normalize path: " << path << std::endl;
+    }
+}
+
 void dockerpack::docker::copy(const dockerpack::job_ptr_t& job, const std::string& path) {
     if (!has_running_job(job)) {
         throw std::runtime_error("Job " + job->job_name() + " is not run yet");
     }
-
     std::string p = path;
-    toolbox::strings::replace("$image", job->job_name(), p);
-    dockerpack::utils::normalize_path(p);
+    auto path_segments = toolbox::strings::split_pair(p, " ");
+    toolbox::strings::trim_ref(path_segments.first);
+    if (path_segments.second.empty()) {
+        path_segments.second = path_segments.first;
+    }
+    toolbox::strings::trim_ref(path_segments.second);
+    normalize_local_path(path_segments.first);
+    normalize_remote_path(path_segments.second);
 
-    dockerpack::execmd cmd("docker cp " + p);
+    if (!toolbox::strings::has_substring("$image", path_segments.second)) {
+        path_segments.second = job->job_name() + ":" + path_segments.second;
+    } else {
+        toolbox::strings::replace("$image", job->job_name(), path_segments.second);
+    }
+
+    std::stringstream res_path;
+    res_path << path_segments.first << " " << path_segments.second;
+
+    if (m_config->debug) {
+        std::cout << "[debug] copy: " << res_path.str() << std::endl;
+    }
+    dockerpack::execmd cmd("docker cp " + res_path.str());
     int status = 0;
     const auto res = cmd.run(&status);
     if (status) {
@@ -59,11 +170,26 @@ void dockerpack::docker::restore_from_ps() {
         if (items.size() != 2) {
             throw std::runtime_error("Undefined \"docker ps\" result: " + res);
         }
-        m_run_jobs[items[1]] = items[0];
+        if (toolbox::strings::has_substring("_dockerpack", items[1])) {
+            m_run_jobs[items[1]] = items[0];
+        }
     }
 }
+
+void dockerpack::docker::load_remote_envs(const dockerpack::job_ptr_t& job) {
+    std::string env_result = exec_internal(job->job_name(), "env");
+    if (!env_result.empty()) {
+        std::vector<std::string> env_lines = toolbox::strings::split(env_result, "\n");
+        for (const auto& env_line : env_lines) {
+            auto pair = toolbox::strings::split_pair(env_line, "=");
+            image_envs[pair.first] = pair.second;
+        }
+    }
+}
+
 void dockerpack::docker::run(const dockerpack::job_ptr_t& job) {
     if (has_running_job(job)) {
+        load_remote_envs(job->shared_from_this());
         return;
     }
 
@@ -90,6 +216,8 @@ void dockerpack::docker::run(const dockerpack::job_ptr_t& job) {
     }
     const std::string image_id = toolbox::strings::substr_replace_all_ret({"\n", "\t", "\r"}, {"", "", ""}, res);
     m_run_jobs[job->job_name()] = image_id;
+
+    load_remote_envs(job->shared_from_this());
 }
 
 void dockerpack::docker::exec(const dockerpack::job_ptr_t& job, const dockerpack::step_ptr_t& step) {
@@ -99,10 +227,17 @@ void dockerpack::docker::exec(const dockerpack::job_ptr_t& job, const dockerpack
 
     std::stringstream cmd_builder;
     cmd_builder << "docker exec ";
+    std::string workdir;
     if (!step->workdir.empty()) {
-        cmd_builder << "-w " << step->workdir << " ";
+        workdir = step->workdir;
     } else if (!m_config->workdir.empty()) {
-        cmd_builder << "-w " << m_config->workdir << " ";
+        workdir = m_config->workdir;
+    }
+
+    if (!workdir.empty()) {
+        normalize_remote_path(workdir);
+        cmd_builder << "-w " << workdir << " ";
+        ensure_workdir(job, workdir);
     }
 
     if (!step->envs.empty()) {

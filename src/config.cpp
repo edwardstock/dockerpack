@@ -10,9 +10,7 @@
 
 #include "utils.h"
 
-#include <boost/filesystem.hpp>
 #include <stdexcept>
-#include <toolbox/data/bytes_data.h>
 #include <toolbox/strings.hpp>
 
 inline dockerpack::step_ptr_t create_step(std::string command, std::string name = "", bool skip_on_error = false, std::string workdir = "") {
@@ -24,15 +22,20 @@ inline dockerpack::step_ptr_t create_step(std::string command, std::string name 
     return step;
 }
 
-dockerpack::config::config(std::string cfg_path)
-    : cfg_path(std::move(cfg_path)) {
+dockerpack::config::config(std::string cwd, std::string cfg_path)
+    : cfg_path(std::move(cfg_path)),
+      workdir("~/project"),
+      m_cwd(std::move(cwd)) {
 }
 
-void dockerpack::config::parse() {
+void dockerpack::config::parse(bool copy_local) {
     const YAML::Node config = YAML::LoadFile(cfg_path);
+
+#if !defined(DOCKERPACK_NODEBUG)
     if (config["debug"]) {
         debug = config["debug"].as<bool>();
     }
+#endif
     if (config["commands_verbose"]) {
         commands_verbose = config["commands_verbose"].as<bool>();
     }
@@ -41,9 +44,11 @@ void dockerpack::config::parse() {
     }
     if (config["workdir"]) {
         workdir = config["workdir"].as<std::string>();
+    } else {
+        workdir = "~/project";
     }
 
-    if (config["checkout"]) {
+    if (config["checkout"] && !copy_local) {
         if (!config["checkout"].IsScalar()) {
             throw config_parse_error("checkout section must be a string", "checkout");
         }
@@ -56,6 +61,9 @@ void dockerpack::config::parse() {
         } else if (config["copy"]) {
             copy_paths.push_back(config["copy"].as<std::string>());
         }
+    }
+    if (copy_local) {
+        copy_paths.push_back(m_cwd + " " + workdir);
     }
 
     if (config["include"]) {
@@ -119,17 +127,23 @@ void dockerpack::config::parse_includes(const YAML::Node& include_list_node) {
     }
 }
 
-dockerpack::env_map dockerpack::config::parse_envs(const YAML::Node& node) const {
+dockerpack::env_map dockerpack::config::parse_envs(const YAML::Node& node, bool redacted) const {
     env_map out;
     for (const auto& env : node) {
         const std::string key = env.first.as<std::string>();
         std::string value = env.second.as<std::string>();
         if (toolbox::strings::equals_icase(value, "$ENV")) {
-            const char* v = std::getenv(key.c_str());
-            if (v == nullptr) {
-                throw std::runtime_error("Unable to get system environment variable \"" + key + "\"");
+            //todo: print for debug only redacted values, now we just disable debug option for release build
+            if (redacted) {
+                value = "**REDACTED**";
+            } else {
+                const char* v = std::getenv(key.c_str());
+                if (v == nullptr) {
+                    value = "";
+                } else {
+                    value = std::string(v);
+                }
             }
-            value = std::string(std::getenv(key.c_str()));
         }
         out[key] = std::move(value);
     }
@@ -137,7 +151,7 @@ dockerpack::env_map dockerpack::config::parse_envs(const YAML::Node& node) const
 }
 
 static std::string clean_job_name(const std::string& name) {
-    return toolbox::strings::substr_replace_all_ret({"/", ".", ":"}, {"_"}, name);
+    return toolbox::strings::substr_replace_all_ret(std::vector<std::string>{"/", ".", ":"}, "_", name);
 }
 
 void dockerpack::config::parse_multijob(const YAML::Node& multijob_node) {

@@ -22,6 +22,13 @@ std::string dockerpack::step::hash() const {
 std::string dockerpack::job::job_name() const {
     return name + "_dockerpack";
 }
+
+void dockerpack::job::add_envs(const dockerpack::env_map& ext_envs) {
+    for (const auto& kv : ext_envs) {
+        envs[kv.first] = kv.second;
+    }
+}
+
 std::string dockerpack::image_to_build::full_name() const {
     if (!repo.empty()) {
         return repo + "/" + name;

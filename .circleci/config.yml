@@ -2,9 +2,9 @@ version: 2.1
 commands:
   do_all:
     steps:
-      - run: git clone --recursive https://github.com/edwardstock/dockerpack /root/dockerpack
-      - run: cd /root/dockerpack && bash cfg/package_make.sh -t archive
-      - run: cd /root/dockerpack && bash _build/package_upload.sh -t github
+      - run: git clone --recursive https://github.com/edwardstock/dockerpack .
+      - run: bash cfg/package_make.sh -t archive
+      - run: bash _build/package_upload.sh -t github
 
 jobs:
   build_all:

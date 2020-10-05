@@ -27,16 +27,19 @@ std::string usage() {
           "/_____/\\____/\\___/_/|_|\\___/_/  /_/    \\__,_/\\___/_/|_|  \n"
           "\n";
     ss << DOCKERPACK_VERSION << "\n";
-    ss << "DockerPack is a small simple local stateful docker-based CI to test and deploy projects that should be built on multiple environments";
+    ss << "DockerPack is a small simple local stateful docker-based CI to test and deploy projects";
     ss << std::endl;
     ss << R"(
 Commands:
-    build
-    build-images
-    print-jobs
-    cleanup
+  build                 Build all jobs and images
+  build-images          Build images only. Works almost like docker-compose,
+                        but you can create a special container for you project based on other.
+                        It helps to speedup development and test time
+  print-jobs            Print all existent jobs
+  cleanup               Remove all running dockerpack images
 
-    command --help - help for command)";
+  command -h [ --help ] Prints help for selected command
+)";
 
     return ss.str();
 }
@@ -84,12 +87,15 @@ int main(int argc, char** argv) {
         desc.add_options()("reset", "Reset dockerpack.lock file and start build from begin");
         desc.add_options()("stateless", "Build jobs and don't save build state.");
         desc.add_options()("no-cleanup", "Don't stop and don't remove running container after success build");
+        desc.add_options()("copy-local", "Copy all files from $PWD to image workdir");
+        desc.add_options()("env,e", po::value<std::vector<std::string>>(), "Pass build-time environment variables (-e A=1 -e B=2)");
         break;
 
     case build_images:
         desc.add_options()("name,n", po::value<std::string>(), "Filter job or image to build. For multijob input 'repo:tag'. Filter is based on find substring in job name or job image.");
         desc.add_options()("reset", "Reset dockerpack.lock file and start build from begin");
         desc.add_options()("stateless", "Build jobs and don't save build state.");
+        desc.add_options()("env,e", po::value<std::vector<std::string>>(), "Pass build-time environment variables (-e A=1 -e B=2)");
         break;
 
     case cleanup:
@@ -134,14 +140,14 @@ int main(int argc, char** argv) {
 
     char dir[255];
     getcwd(dir, 255);
-    std::string working_dir(dir);
-    std::cout << "Working directory: " << working_dir << std::endl;
+    std::string cwd(dir);
+    std::cout << "Working directory: " << cwd << std::endl;
 
     std::string cfg_path;
     if (vm.count("config")) {
         cfg_path = vm.at("config").as<std::string>();
     } else {
-        cfg_path = working_dir + "/dockerpack.yml";
+        cfg_path = cwd + "/dockerpack.yml";
     }
     if (!toolbox::io::file_exists(cfg_path)) {
         std::cerr << "Config file " << cfg_path << " not found" << std::endl;
@@ -152,11 +158,19 @@ int main(int argc, char** argv) {
     opts.reset_lock = vm.count("reset");
     opts.stateless = vm.count("stateless");
     opts.no_cleanup = vm.count("no-cleanup");
+    opts.copy_local = vm.count("copy-local");
     if (vm.count("name")) {
         opts.filter_name = vm.at("name").as<std::string>();
     }
+    if (vm.count("env")) {
+        const std::vector<std::string> envs = vm.at("env").as<std::vector<std::string>>();
+        for (const auto& var : envs) {
+            auto pair = toolbox::strings::split_pair(var, "=");
+            opts.envs[pair.first] = pair.second;
+        }
+    }
 
-    state_path = working_dir + "/" + dockerpack::STATE_FILE;
+    state_path = cwd + "/" + dockerpack::STATE_FILE;
 
     signal(SIGINT, [](int signum) {
         if (boost::filesystem::exists(state_path)) {
@@ -166,7 +180,7 @@ int main(int argc, char** argv) {
         exit(signum);
     });
 
-    dockerpack::builder b(cfg_path, state_path, std::move(opts));
+    dockerpack::builder b(cwd, cfg_path, state_path, std::move(opts));
     try {
         bool ret = true;
         switch (cmd) {

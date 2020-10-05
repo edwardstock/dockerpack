@@ -26,11 +26,13 @@ struct build_options {
     bool reset_lock = false;
     bool stateless = false;
     bool no_cleanup = false;
+    bool copy_local = false;
+    env_map envs;
 };
 
 class builder {
 public:
-    builder(const std::string& config_path, const std::string& pwd, build_options&& opts);
+    builder(std::string cwd, const std::string& config_path, const std::string& state_file_path, build_options&& opts);
 
     void init();
     bool build_all();

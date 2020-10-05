@@ -1,24 +1,44 @@
-# print raw commands
+# print raw commands (works only in Debug configuration, release build does not support it as it may have security issues)
 debug: false
 # disabling output can increase build speed
 commands_verbose: true
-# used only in jobs
+# default working directory: ~/project (it will be created if not exist)
 workdir: /root/bigmath
 # this command will be executed right after image run
-checkout: git clone --recursive https://github.com/edwardstock/bigmath.git /root/bigmath
+# code will be checked out in /root/bigmath (workdir)
+checkout: git clone --recursive https://github.com/edwardstock/bigmath.git .
+
+# also you can copy local files
 #copy:
-#  - ~/projects/cpp/bigmath $image:/root
+#  - ~/projects/cpp/bigmath /root/
 
 # list of named commands to use in job steps
 commands:
-  sample_command:
+  hello_command:
     steps:
+      - echo "hello" > /tmp/hello.txt
+
+  # command name
+  sample_command:
+    # step sequence
+    steps:
+      # you can just write your command as element
+      - echo "sample_command_step" >> /tmp/progress.txt
+      # use another command from stack (it means you can use only those command what already defined upward)
+      - hello_command
+      # or write fully customizable command with error ignorance flag, custom workdir or pass special environment vars
       - run:
-          command: ls /tmp
+          command: ls -lsa .
+          # it's just to print instead command
           name: tmp list files
           # exit code can be ignored
           skip_on_error: true
-
+          # change workdir only for this step
+          workdir: /tmp
+          # use custom envs
+          env:
+            MY_VAR: 1
+            MY_VAR2: 2
 
   test:
     steps:

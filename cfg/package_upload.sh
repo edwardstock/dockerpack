@@ -97,15 +97,30 @@ if [ "${TYPE}" == "github" ]; then
   ${GHR_BIN} -replace @PROJECT_VERSION@ ${BUILD_ROOT}/@UPLOAD_FILE_NAME@
 
 elif [ "${TYPE}" == "bintray" ]; then
-  # bintray upload
-  UNAME=$BINTRAY_USER
-  PASS=$BINTRAY_API_KEY
-  BASE_URL=https://api.bintray.com/content/edwardstock
+  JFROG_BIN=${BUILD_ROOT}/jfrog
 
-  if [ "${DRY_RUN}" == "1" ]; then
-    echo "curl -T ${BUILD_ROOT}/@UPLOAD_FILE_NAME@ -u${UNAME}:${PASS} \"${BASE_URL}/@REPO_NAME@/@PROJECT_NAME@/@PROJECT_VERSION@/@TARGET_PATH@/@UPLOAD_FILE_NAME@@URL_SUFFIX@\""
+  if [ ! -f "/usr/bin/jfrog" ] && [ ! -f "/usr/local/bin/jfrog" ]; then
+    if [ ! -f "/tmp/jfrog_cli" ]; then
+      curl -Lso /tmp/jfrog_cli https://jfrog.bintray.com/jfrog-cli-go/1.39.5/jfrog-cli-linux-amd64/jfrog
+      cp /tmp/jfrog_cli ${JFROG_BIN}
+      chmod +x ${JFROG_BIN}
+    fi
+  else
+    JFROG_BIN=$(which jfrog)
+  fi
+
+  #1. configure
+  ${JFROG_BIN} bt c --user $BINTRAY_USER --key $BINTRAY_API_KEY --licenses MIT
+
+  #2. create package if not exists
+  ${JFROG_BIN} bt pc --vcs-url @CPACK_PACKAGE_VCS_URL@ ${BINTRAY_USER}/@REPO_NAME@/@PROJECT_NAME@ > /dev/null 2>&1 || true
+
+  #3. upload
+  if [ "${DRY_RUN}" == "1" ];then
+    echo ${JFROG_BIN} bt upload --publish --override @JFROG_OPTIONS@ "${BUILD_ROOT}/@UPLOAD_FILE_NAME@" "${BINTRAY_USER}/@REPO_NAME@/@PROJECT_NAME@/@PROJECT_VERSION@" "@TARGET_PATH@"
     exit 0
   fi
 
-  curl -T ${BUILD_ROOT}/@UPLOAD_FILE_NAME@ -u${UNAME}:${PASS} "${BASE_URL}/@REPO_NAME@/@PROJECT_NAME@/@PROJECT_VERSION@/@TARGET_PATH@/@UPLOAD_FILE_NAME@@URL_SUFFIX@"
+  ${JFROG_BIN} bt upload --publish --override @JFROG_OPTIONS@ "${BUILD_ROOT}/@UPLOAD_FILE_NAME@" "${BINTRAY_USER}/@REPO_NAME@/@PROJECT_NAME@/@PROJECT_VERSION@" "@TARGET_PATH@"
+
 fi

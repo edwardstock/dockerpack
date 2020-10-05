@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(dockerpack
-        VERSION 0.1.0
+        VERSION 0.1.1
         DESCRIPTION "DockerPack is a small simple docker-based local stateful CI to test and deploy projects that should be built on multiple environments."
         LANGUAGES CXX
         )
@@ -8,6 +8,10 @@ project(dockerpack
 set(CMAKE_CXX_STANDARD 17)
 
 add_definitions(-DDOCKERPACK_VERSION="${PROJECT_VERSION}")
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+	add_definitions(-DDOCKERPACK_NODEBUG=1)
+endif ()
+
 cmake_policy(SET CMP0074 NEW)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/modules)

@@ -66,6 +66,7 @@ public:
     std::vector<std::shared_ptr<step>> steps;
 
     std::string job_name() const;
+    void add_envs(const dockerpack::env_map& ext_envs);
 };
 
 class image_to_build : public job, public virtual_enable_shared_from_this<dockerpack::image_to_build> {
@@ -74,6 +75,10 @@ public:
     std::string tag;
 
     std::string full_name() const;
+
+    std::shared_ptr<image_to_build> shared_from_this() {
+        return virtual_enable_shared_from_this<dockerpack::image_to_build>::shared_from_this();
+    }
 };
 
 using job_ptr_t = std::shared_ptr<dockerpack::job>;

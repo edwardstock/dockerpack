@@ -11,18 +11,6 @@ dockerpack supports build state and you can any time access interactive shell to
 DockerPack saves success build steps to avoid boilerplate rework.<br/>
 Also **dockerpack.yaml** syntax almost looks like github actions or CircleCI.
 
-
-## Build requirements
-* cmake >= 3.12
-* gnu gcc 5+/clang 5+/msvc
-* make
-* toolbox/3.1.1
-* boost 1.72.0
-* nlohmann/json
-* yaml-cpp
-* libsodium
-
-
 ## Download
 
 ### Self-extractable bash script for MacOS or Linux
@@ -65,3 +53,23 @@ echo "deb https://dl.bintray.com/edwardstock/debian {distribution} main" | sudo 
 curl -s https://bintray.com/user/downloadSubjectPublicKey?username=bintray | sudo apt-key add -
 apt update && apt install dockerpack
 ```
+
+## Usage
+* Create dockerpack.yml in your project root. See [example config](example_config/dockerpack.yml)
+* run:
+```bash
+dockerpack build # build all jobs
+
+# also see help, there are only few commands
+dockerpack -h
+```
+
+## Build requirements
+* cmake >= 3.12
+* gnu gcc 5+/clang 5+/msvc
+* make
+* toolbox/3.1.1
+* boost 1.72.0
+* nlohmann/json
+* yaml-cpp
+* libsodium

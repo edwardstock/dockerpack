@@ -1,17 +1,11 @@
-# disabling output can increase build speed
 commands_verbose: true
-# used only in jobs
-workdir: /root/dockerpack
-# this command will be executed right after image run
-checkout: git clone --recursive https://github.com/edwardstock/dockerpack.git /root/dockerpack
+checkout: git clone --recursive https://github.com/edwardstock/dockerpack.git .
 
-# list of named commands to use in job steps
 commands:
   make_project:
     steps:
       - bash cfg/package_make.sh -t package
       - bash _build/package_upload.sh -t bintray
-
 
 multijob:
   images:

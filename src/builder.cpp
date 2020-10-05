@@ -20,8 +20,8 @@ static inline void error(const std::string& message, const std::exception& e) {
     std::cerr << e.what() << style::reset << std::endl;
 }
 
-dockerpack::builder::builder(const std::string& config_path, const std::string& state_file_path, dockerpack::build_options&& opts)
-    : m_config(std::make_shared<dockerpack::config>(config_path)),
+dockerpack::builder::builder(std::string cwd, const std::string& config_path, const std::string& state_file_path, build_options&& opts)
+    : m_config(std::make_shared<dockerpack::config>(std::move(cwd), config_path)),
       m_docker(m_config),
       m_state(state_file_path),
       m_options(std::move(opts)) {
@@ -81,13 +81,31 @@ void dockerpack::builder::print_jobs() {
 }
 
 bool dockerpack::builder::build_images() {
-    for (const auto& image : m_config->build_images) {
+    std::vector<imb_ptr_t> images;
+    if (!m_options.filter_name.empty()) {
+        for (auto& image : m_config->build_images) {
+            if (toolbox::strings::has_substring(m_options.filter_name, image->job_name())) {
+                images.push_back(image->shared_from_this());
+            } else if (toolbox::strings::has_substring(m_options.filter_name, image->image)) {
+                images.push_back(image->shared_from_this());
+            } else if (toolbox::strings::has_substring(m_options.filter_name, image->repo)) {
+                images.push_back(image->shared_from_this());
+            }
+        }
+    } else {
+        std::for_each(m_config->build_images.begin(), m_config->build_images.end(), [&images](imb_ptr_t image) {
+            images.push_back(image->shared_from_this());
+        });
+    }
+    for (auto& image : images) {
         if (m_docker.has_image(image->full_name(), image->tag)) {
             std::cout << "Skipping build " << style::green << image->full_name() << ":" << image->tag << style::reset << std::endl;
             continue;
         }
 
         std::cout << "Starting building image: " << style::green << image->name << style::reset << std::endl;
+
+        image->add_envs(m_options.envs);
 
         // run image
         try {
@@ -174,11 +192,13 @@ bool dockerpack::builder::build_jobs() {
 
         return true;
     }
-    for (const auto& job : jobs) {
+    for (auto& job : jobs) {
         if (m_state.has_success_job(job)) {
             std::cout << "Skipping successful job " << style::green << job->name << style::reset << std::endl;
             continue;
         }
+
+        job->add_envs(m_options.envs);
 
         // run image
         try {
@@ -264,7 +284,7 @@ void dockerpack::builder::init() {
         m_state.remove();
     }
 
-    m_config->parse();
+    m_config->parse(m_options.copy_local);
     m_state.load();
 }
 
