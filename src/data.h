@@ -29,6 +29,7 @@ public:
     std::string name;
     std::string command;
     bool skip_on_error = false;
+    bool stateless = false;
     std::string workdir;
     env_map envs;
 

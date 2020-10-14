@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.2.0
+* Added `stateless` option to command step. It can be used if some step shouldn't be added to success state. In next re-run this step will be executed again.
+* Added ability to add pre-steps to multijob special config
+* Added ability to set global environments in root of config. They will be added to each execution unit
+* Added ability to exclude job by name (not working yet for image building) or image by adding **!** before pattern. Example: `dockerpack build -n !debian` will execute all jobs except all debian (job name or image)
+
 ## 0.1.2
 * Fixed creating working directory
 * Fixed --copy-local

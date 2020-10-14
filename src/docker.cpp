@@ -253,10 +253,13 @@ void dockerpack::docker::exec(const dockerpack::job_ptr_t& job, const dockerpack
             cmd_builder << "-e " << kv.first << "=" << kv.second << " ";
         }
     }
+
     cmd_builder << job->job_name() << " ";
     cmd_builder << "bash -c \"";
     cmd_builder << step->command;
     cmd_builder << "\"";
+
+    std::string res = cmd_builder.str();
 
     if (m_config->debug) {
         std::cout << "[debug] exec: " << style::green << cmd_builder.str() << style::reset << std::endl;

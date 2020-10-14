@@ -98,7 +98,7 @@ void dockerpack::state::add_success_job(const std::shared_ptr<dockerpack::job>& 
     }
 }
 void dockerpack::state::add_success_step(const std::shared_ptr<dockerpack::job>& job, const std::shared_ptr<dockerpack::step>& step) {
-    if (!m_enable)
+    if (!m_enable || step->stateless)
         return;
     if (!success_steps.count(job->job_name())) {
         success_steps[job->job_name()] = std::vector<std::string>();
@@ -107,7 +107,7 @@ void dockerpack::state::add_success_step(const std::shared_ptr<dockerpack::job>&
     success_steps[job->job_name()].push_back(step->hash());
 }
 void dockerpack::state::add_success_build_step(const std::shared_ptr<dockerpack::image_to_build>& job, const std::shared_ptr<dockerpack::step>& step) {
-    if (!m_enable)
+    if (!m_enable || step->stateless)
         return;
     if (!success_build_steps.count(job->job_name())) {
         success_build_steps[job->job_name()] = std::vector<std::string>();

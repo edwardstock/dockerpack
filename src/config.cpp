@@ -44,8 +44,6 @@ void dockerpack::config::parse(bool copy_local) {
     }
     if (config["workdir"]) {
         workdir = config["workdir"].as<std::string>();
-    } else {
-        workdir = "~/project";
     }
 
     if (config["checkout"] && !copy_local) {
@@ -53,6 +51,10 @@ void dockerpack::config::parse(bool copy_local) {
             throw config_parse_error("checkout section must be a string", "checkout");
         }
         checkout_command = config["checkout"].as<std::string>();
+    }
+
+    if (config["env"]) {
+        global_envs = parse_envs(config["env"]);
     }
 
     if (config["copy"]) {
@@ -188,7 +190,8 @@ void dockerpack::config::parse_multijob(const YAML::Node& multijob_node) {
             job_ptr_t job = std::make_shared<dockerpack::job>();
             job->image = image.as<std::string>();
             job->name = clean_job_name(job->image);
-            job->envs = local_envs;
+            job->envs.insert(global_envs.cbegin(), global_envs.cend());
+            job->envs.insert(local_envs.begin(), local_envs.end());
 
             local_jobs.push_back(std::move(job));
         } else if (image.IsMap()) {
@@ -197,6 +200,12 @@ void dockerpack::config::parse_multijob(const YAML::Node& multijob_node) {
                 job_ptr_t job = std::make_shared<dockerpack::job>();
                 job->image = image["image"].as<std::string>();
                 job->name = clean_job_name(job->image);
+
+                if (image["steps"] && image["steps"].IsSequence()) {
+                    auto job_steps_before = parse_steps(image["steps"]);
+                    job->steps = std::move(job_steps_before);
+                }
+
                 jobs_tmp.push_back(std::move(job));
             } else if (image["images"] && image["images"].IsSequence()) {
                 for (const auto& item : image["images"]) {
@@ -212,8 +221,11 @@ void dockerpack::config::parse_multijob(const YAML::Node& multijob_node) {
             if (image["env"]) {
                 const auto image_envs = parse_envs(image["env"]);
                 for (auto& job : jobs_tmp) {
+                    // add global envs
+                    job->envs.insert(global_envs.cbegin(), global_envs.cend());
+                    // add parsed local multijob-root envs
                     job->envs.insert(local_envs.begin(), local_envs.end());
-                    // if something repeats, priority to local env
+                    // add image-local envs; if something repeats, priority to local env
                     job->envs.insert(image_envs.begin(), image_envs.end());
                 }
             }
@@ -250,7 +262,7 @@ void dockerpack::config::parse_multijob(const YAML::Node& multijob_node) {
                 create_step(
                     checkout_command,
                     "checkout",
-                    true,
+                    false,
                     workdir));
         }
         job->steps.insert(
@@ -285,7 +297,9 @@ void dockerpack::config::parse_build_images(const YAML::Node& build_images_node)
             throw config_parse_error("Image does not have a tag name", "build_images", image->name);
         }
         if (image_node.second["env"]) {
-            image->envs = parse_envs(image_node.second["env"]);
+            auto envs = parse_envs(image_node.second["env"]);
+            image->envs.insert(global_envs.cbegin(), global_envs.cend());
+            image->envs.insert(envs.begin(), envs.end());
         }
 
         image->image = image_node.second["image"].as<std::string>();
@@ -322,8 +336,8 @@ void dockerpack::config::parse_jobs(const YAML::Node& jobs_node) {
                 create_step(
                     checkout_command,
                     "checkout",
-                    true,
-                    "/"));
+                    false,
+                    workdir));
         }
 
         if (!job_node.second.IsMap()) {
@@ -336,16 +350,9 @@ void dockerpack::config::parse_jobs(const YAML::Node& jobs_node) {
             throw config_parse_error("Job does not have a steps list.", "jobs", job->name);
         }
         if (job_node.second["env"] && job_node.second["env"].IsMap()) {
-            std::unordered_map<std::string, std::string> envs;
-            for (const auto& env : job_node.second["env"]) {
-                const std::string key = env.first.as<std::string>();
-                std::string value = env.second.as<std::string>();
-                if (toolbox::strings::equals_icase(value, "$ENV")) {
-                    value = std::string(std::getenv(key.c_str()));
-                }
-                envs[key] = std::move(value);
-            }
-            job->envs = std::move(envs);
+            std::unordered_map<std::string, std::string> envs = parse_envs(job_node.second["env"]);
+            job->envs.insert(global_envs.cbegin(), global_envs.cend());
+            job->envs.insert(envs.begin(), envs.end());
         }
 
         job->image = job_node.second["image"].as<std::string>();
@@ -398,7 +405,12 @@ std::vector<dockerpack::step_ptr_t> dockerpack::config::parse_steps(const YAML::
                     }
                     step->skip_on_error = config_step["run"]["skip_on_error"] != nullptr && config_step["run"]["skip_on_error"].as<bool>();
                     if (config_step["run"]["env"]) {
-                        step->envs = parse_envs(config_step["run"]["env"]);
+                        auto envs = parse_envs(config_step["run"]["env"]);
+                        step->envs.insert(global_envs.cbegin(), global_envs.cend());
+                        step->envs.insert(envs.begin(), envs.end());
+                    }
+                    if (config_step["run"]["stateless"]) {
+                        step->stateless = config_step["run"]["stateless"].as<bool>();
                     }
 
                     // check command step is a reference to another command

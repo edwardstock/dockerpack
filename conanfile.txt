@@ -2,7 +2,7 @@
 cmake
 
 [requires]
-toolbox/3.2.0@edwardstock/latest
+toolbox/3.2.1@edwardstock/latest
 boost/1.72.0
 nlohmann_json/3.7.3
 yaml-cpp/0.6.3

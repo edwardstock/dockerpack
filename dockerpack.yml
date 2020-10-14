@@ -1,11 +1,12 @@
 commands_verbose: true
+debug: true
 checkout: git clone --recursive https://github.com/edwardstock/dockerpack.git .
 
 commands:
   make_project:
     steps:
       - bash cfg/package_make.sh -t package
-      - bash _build/package_upload.sh -t bintray
+      - bash _build/package_upload.sh -t bintray --dry-run
 
 multijob:
   images:

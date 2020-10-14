@@ -1,5 +1,3 @@
-# print raw commands (works only in Debug configuration, release build does not support it as it may have security issues)
-debug: false
 # disabling output can increase build speed
 commands_verbose: true
 # default working directory: ~/project (it will be created if not exist)
@@ -11,6 +9,9 @@ checkout: git clone --recursive https://github.com/edwardstock/bigmath.git .
 # also you can copy local files
 #copy:
 #  - ~/projects/cpp/bigmath /root/
+
+env:
+  MY_GLOBAL_ENV: some_value
 
 # list of named commands to use in job steps
 commands:
@@ -35,6 +36,8 @@ commands:
           skip_on_error: true
           # change workdir only for this step
           workdir: /tmp
+          # use "true" if you want to re-run this step anyway (it will not be saved to success state)
+          stateless: false
           # use custom envs
           env:
             MY_VAR: 1

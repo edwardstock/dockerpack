@@ -29,21 +29,27 @@ dockerpack::builder::builder(std::string cwd, const std::string& config_path, co
     m_state.enable(!opts.stateless);
 }
 
-void dockerpack::builder::print_jobs() {
-    std::vector<job_ptr_t> jobs;
-    if (m_options.filter_name.empty()) {
-        std::for_each(m_config->jobs.begin(), m_config->jobs.end(), [&jobs](job_ptr_t job) {
-            jobs.push_back(job->shared_from_this());
-        });
-    } else {
-        for (auto& job : m_config->jobs) {
-            if (toolbox::strings::has_substring(m_options.filter_name, job->job_name())) {
-                jobs.push_back(job->shared_from_this());
-            } else if (toolbox::strings::has_substring(m_options.filter_name, job->image)) {
-                jobs.push_back(job->shared_from_this());
-            }
-        }
+static std::vector<dockerpack::job_ptr_t> filter_jobs(const std::string& filter, const std::vector<dockerpack::job_ptr_t>& source) {
+    if (filter.empty()) {
+        return source;
     }
+    std::vector<dockerpack::job_ptr_t> out;
+    std::copy_if(source.begin(), source.end(), std::back_inserter(out), [&filter](dockerpack::job_ptr_t job) {
+        using namespace toolbox::strings;
+        bool found;
+        if (filter.at(0) == '!') {
+            found = !has_substring(filter.substr(1), job->job_name()) && !has_substring(filter.substr(1), job->image);
+        } else {
+            found = has_substring(filter, job->job_name()) || has_substring(filter, job->image);
+        }
+        return found;
+    });
+
+    return out;
+}
+
+void dockerpack::builder::print_jobs() {
+    std::vector<job_ptr_t> jobs = filter_jobs(m_options.filter_name, m_config->jobs);
 
     if (!m_options.filter_name.empty() && jobs.empty()) {
         std::cout << "No one job found by filter \"" << m_options.filter_name << "\"" << std::endl;
@@ -168,20 +174,7 @@ bool dockerpack::builder::build_images() {
     return true;
 }
 bool dockerpack::builder::build_jobs() {
-    std::vector<job_ptr_t> jobs;
-    if (!m_options.filter_name.empty()) {
-        for (auto& job : m_config->jobs) {
-            if (toolbox::strings::has_substring(m_options.filter_name, job->job_name())) {
-                jobs.push_back(job->shared_from_this());
-            } else if (toolbox::strings::has_substring(m_options.filter_name, job->image)) {
-                jobs.push_back(job->shared_from_this());
-            }
-        }
-    } else {
-        std::for_each(m_config->jobs.begin(), m_config->jobs.end(), [&jobs](job_ptr_t job) {
-            jobs.push_back(job->shared_from_this());
-        });
-    }
+    std::vector<job_ptr_t> jobs = filter_jobs(m_options.filter_name, m_config->jobs);
     if (jobs.empty()) {
         std::cout << "Nothing to run: ";
         if (!m_options.filter_name.empty()) {

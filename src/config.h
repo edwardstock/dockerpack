@@ -55,6 +55,7 @@ public:
     std::vector<job_ptr_t> jobs;
     std::vector<imb_ptr_t> build_images;
     std::string m_cwd;
+    env_map global_envs;
 
     config(std::string cwd, std::string cfg_path);
 
