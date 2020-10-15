@@ -1,5 +1,8 @@
 # Release notes
 
+## 0.2.1
+* Fixed global envs if not presented "env" key in specific job or step
+
 ## 0.2.0
 * Added `stateless` option to command step. It can be used if some step shouldn't be added to success state. In next re-run this step will be executed again.
 * Added ability to add pre-steps to multijob special config

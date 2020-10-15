@@ -349,9 +349,10 @@ void dockerpack::config::parse_jobs(const YAML::Node& jobs_node) {
         if (!job_node.second["steps"]) {
             throw config_parse_error("Job does not have a steps list.", "jobs", job->name);
         }
+
+        job->envs.insert(global_envs.cbegin(), global_envs.cend());
         if (job_node.second["env"] && job_node.second["env"].IsMap()) {
             std::unordered_map<std::string, std::string> envs = parse_envs(job_node.second["env"]);
-            job->envs.insert(global_envs.cbegin(), global_envs.cend());
             job->envs.insert(envs.begin(), envs.end());
         }
 
@@ -404,9 +405,9 @@ std::vector<dockerpack::step_ptr_t> dockerpack::config::parse_steps(const YAML::
                         step->workdir = config_step["run"]["workdir"].as<std::string>();
                     }
                     step->skip_on_error = config_step["run"]["skip_on_error"] != nullptr && config_step["run"]["skip_on_error"].as<bool>();
+                    step->envs.insert(global_envs.cbegin(), global_envs.cend());
                     if (config_step["run"]["env"]) {
                         auto envs = parse_envs(config_step["run"]["env"]);
-                        step->envs.insert(global_envs.cbegin(), global_envs.cend());
                         step->envs.insert(envs.begin(), envs.end());
                     }
                     if (config_step["run"]["stateless"]) {

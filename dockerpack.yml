@@ -6,7 +6,7 @@ commands:
   make_project:
     steps:
       - bash cfg/package_make.sh -t package
-      - bash _build/package_upload.sh -t bintray --dry-run
+      - bash _build/package_upload.sh -t bintray
 
 multijob:
   images:

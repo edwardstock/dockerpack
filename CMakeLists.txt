@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 project(dockerpack
-        VERSION 0.2.0
+        VERSION 0.2.1
         DESCRIPTION "DockerPack is a small simple docker-based local stateful CI to test and deploy projects that should be built on multiple environments."
         LANGUAGES CXX
         )
